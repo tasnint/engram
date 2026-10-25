@@ -1,0 +1,27 @@
+{
+  "name": "@engram/core",
+  "version": "0.1.0",
+  "description": "Engram's memory engine: storage, search and ranking on MongoDB.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --project unit",
+    "test:integration": "vitest run --project integration --passWithNoTests",
+    "db:seed": "tsx src/scripts/seed.ts"
+  },
+  "dependencies": {
+    "mongodb": "7.7.0"
+  }
+}

@@ -1,0 +1,63 @@
+# Local MongoDB with Search: pnpm db:up
+#   mongod  - the database, a single-member replica set, on localhost:27017
+#   init    - one-shot: starts the replica set and creates mongot's user
+#   mongot  - the search engine behind $search and $vectorSearch
+name: engram
+
+services:
+  mongod:
+    image: mongodb/mongodb-community-server:9.0.4-ubuntu2204
+    command: ["--config", "/etc/mongod.conf", "--replSetMember=mongod:27017"]
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - ./docker/mongod.conf:/etc/mongod.conf:ro
+      - mongod-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 2s
+      retries: 30
+
+  init:
+    image: mongodb/mongodb-community-server:9.0.4-ubuntu2204
+    depends_on:
+      mongod:
+        condition: service_healthy
+    entrypoint:
+      ["mongosh", "--quiet", "mongodb://mongod:27017/?directConnection=true", "/init-replset.js"]
+    volumes:
+      - ./docker/init-replset.js:/init-replset.js:ro
+    secrets:
+      - mongot-password
+    restart: "no"
+
+  mongot:
+    image: mongodb/mongodb-community-search:1.70.5
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:28080:8080" # health check: curl localhost:28080/health
+    # mongot refuses a password file anyone but its owner can read, and a file
+    # checked out from git isn't. Copy it and lock it down before starting.
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        install -m 400 /run/secrets/mongot-password /tmp/mongot-password &&
+        exec /mongot-community/mongot --config /mongot-community/config.default.yml
+    volumes:
+      - ./docker/mongot.yml:/mongot-community/config.default.yml:ro
+      - mongot-data:/data/mongot
+    secrets:
+      - mongot-password
+    # No healthcheck: the image may not ship curl. `pnpm db:indexes` waits until search is ready.
+    restart: unless-stopped
+
+secrets:
+  mongot-password:
+    file: ./docker/mongot-password
+
+volumes:
+  mongod-data:
+  mongot-data:

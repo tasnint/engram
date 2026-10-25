@@ -1,0 +1,24 @@
+# mongot (MongoDB Search) for local development.
+syncSource:
+  replicaSet:
+    hostAndPort: "mongod:27017"
+    scramAuth:
+      username: mongotUser
+      authSource: admin
+      passwordFile: /tmp/mongot-password
+      tls:
+        enabled: false
+storage:
+  dataPath: /data/mongot
+server:
+  grpc:
+    address: "0.0.0.0:27028"
+    tls:
+      mode: "disabled"
+metrics:
+  enabled: true
+  address: "0.0.0.0:9946"
+healthCheck:
+  address: "0.0.0.0:8080"
+logging:
+  verbosity: INFO
