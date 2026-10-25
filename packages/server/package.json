@@ -1,0 +1,19 @@
+{
+  "name": "@engram/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx --env-file=../../.env watch src/main.ts",
+    "start": "node --env-file=../../.env dist/main.js"
+  },
+  "dependencies": {
+    "@engram/core": "workspace:*",
+    "@fastify/swagger": "^9.5.0",
+    "@fastify/swagger-ui": "^5.2.0",
+    "fastify": "^5.6.0",
+    "mongodb": "^6.20.0",
+    "zod": "^4.1.0"
+  }
+}
