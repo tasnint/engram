@@ -9,7 +9,7 @@ services:
     image: mongodb/mongodb-community-server:9.0.4-ubuntu2204
     command: ["--config", "/etc/mongod.conf", "--replSetMember=mongod:27017"]
     ports:
-      - "127.0.0.1:27017:27017"
+      - "127.0.0.1:${MONGODB_PORT:-27017}:27017"
     volumes:
       - ./docker/mongod.conf:/etc/mongod.conf:ro
       - mongod-data:/data/db

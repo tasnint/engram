@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "noEmit": true },
+  "include": ["server", "test", "vite.config.ts", "vitest.config.ts"]
+}

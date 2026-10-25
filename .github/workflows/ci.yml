@@ -1,0 +1,43 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm build
+      - run: pnpm typecheck
+      - run: pnpm test
+
+      # The same database developers use: MongoDB 9 replica set + mongot.
+      - run: docker compose up -d --wait
+      - name: Wait for mongot
+        run: |
+          for i in $(seq 1 90); do
+            curl -sf localhost:28080/health && exit 0
+            sleep 2
+          done
+          docker compose logs mongot
+          exit 1
+      - run: pnpm test:integration
+        env:
+          MONGODB_TEST_URI: mongodb://localhost:27017/?directConnection=true
+          ENGRAM_REQUIRE_SEARCH: "1"
+      - if: failure()
+        run: docker compose logs
+      - if: always()
+        run: docker compose down -v

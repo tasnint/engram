@@ -1,19 +1,39 @@
-import type { Embedder } from "../types.js";
+import { z } from "zod";
+import type { EmbeddingProvider } from "../types.js";
 import { HashEmbedder } from "./hash-embedder.js";
+import { LocalEmbeddingProvider, VoyageEmbeddingProvider } from "./providers.js";
 
-export { HashEmbedder } from "./hash-embedder.js";
+export { HashEmbedder, tokenize } from "./hash-embedder.js";
+export {
+  LocalEmbeddingProvider,
+  VoyageEmbeddingProvider,
+  validateEmbeddings,
+} from "./providers.js";
 
-/**
- * Picks an embedder from ENGRAM_EMBEDDER / ENGRAM_EMBEDDING_DIMS.
- * TODO(P4, Neha): add "voyage" and "local" providers here.
- */
-export function createEmbedderFromEnv(env: NodeJS.ProcessEnv = process.env): Embedder {
-  const kind = env.ENGRAM_EMBEDDER ?? "hash";
-  const dims = env.ENGRAM_EMBEDDING_DIMS ? Number(env.ENGRAM_EMBEDDING_DIMS) : undefined;
-  switch (kind) {
-    case "hash":
-      return new HashEmbedder(dims);
-    default:
-      throw new Error(`Unknown ENGRAM_EMBEDDER "${kind}". Supported: hash`);
-  }
+/** Picks the embedding provider from EMBEDDING_PROVIDER and friends (see .env.example). */
+export function embeddingFromEnvironment(env: NodeJS.ProcessEnv = process.env): EmbeddingProvider {
+  const provider = z
+    .enum(["local", "voyage", "hash"])
+    .default("local")
+    .parse(env.EMBEDDING_PROVIDER || undefined);
+  const dimensions = env.EMBEDDING_DIMENSIONS
+    ? z.coerce.number().int().positive().parse(env.EMBEDDING_DIMENSIONS)
+    : undefined;
+  if (provider === "voyage")
+    return new VoyageEmbeddingProvider({
+      apiKey: env.VOYAGE_API_KEY ?? "",
+      model: env.VOYAGE_MODEL || undefined,
+      dimensions,
+    });
+  if (provider === "hash") return new HashEmbedder(dimensions);
+  return new LocalEmbeddingProvider({
+    model: env.LOCAL_MODEL || undefined,
+    dimensions,
+    offline:
+      z
+        .enum(["true", "false"])
+        .default("false")
+        .parse(env.LOCAL_OFFLINE || undefined) === "true",
+    localModelPath: env.LOCAL_MODEL_PATH || undefined,
+  });
 }

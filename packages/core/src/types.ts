@@ -1,6 +1,6 @@
 /**
- * The shared contract (P3). Both tracks build against these types, so change
- * them only with both Tanisha and Neha approving the PR.
+ * The shared contract. Both tracks build against these types, so change them
+ * only with both Tanisha and Neha approving the PR.
  */
 import type { ObjectId } from "mongodb";
 
@@ -21,11 +21,11 @@ export type MemoryType = (typeof MEMORY_TYPES)[number];
 export type MemoryStatus = "active" | "archived";
 
 export interface MemorySource {
-  sessionId?: string;
-  messageId?: string;
+  sessionId: string | null;
+  messageId: string | null;
 }
 
-/** A document in the `memories` collection. */
+/** A document in the `memories` collection, as both tracks see it. */
 export interface MemoryDoc {
   _id: ObjectId;
   /** Which agent owns the memory, e.g. "support-bot". */
@@ -34,7 +34,7 @@ export interface MemoryDoc {
   userId: string;
   type: MemoryType;
   content: string;
-  /** Length must match the vector index (see Embedder.dimensions). */
+  /** Length must match the vector index (see EmbeddingProvider.dimensions). */
   embedding: number[];
   tags: string[];
   /** 0 to 1. Set on write (A2), lowered over time by decay (A4). */
@@ -56,10 +56,10 @@ export interface MemoryDoc {
 export type Memory = Omit<MemoryDoc, "embedding">;
 
 // ---------------------------------------------------------------------------
-// remember / recall / forget
+// remember / recall / forget / list
 // ---------------------------------------------------------------------------
 
-/** Owned by Track A (Neha). */
+/** Track A (Neha). */
 export interface RememberInput {
   namespace: string;
   userId: string;
@@ -79,7 +79,7 @@ export interface RememberInput {
  */
 export type RecallMode = "hybrid" | "vector" | "text";
 
-/** Owned by Track B (Tanisha). */
+/** Track B (Tanisha). */
 export interface RecallInput {
   namespace: string;
   userId: string;
@@ -113,31 +113,57 @@ export interface RecallResult {
   signals: RecallSignals;
 }
 
-/** Owned by Track A (Neha). Pass an id to delete one memory, or namespace + userId to delete all of a user's memories. */
+/** Track A (Neha). Pass an id to delete one memory, or namespace + userId to delete all of a user's memories. */
 export type ForgetInput = { id: string } | { namespace: string; userId: string };
 
 export interface ForgetResult {
   deleted: number;
 }
 
+export interface ListMemoriesInput {
+  namespace: string;
+  userId: string;
+  type?: MemoryType;
+  status?: MemoryStatus;
+  limit?: number;
+  /** From the previous page's nextCursor. */
+  cursor?: string;
+}
+
+export interface MemoryPage {
+  memories: Memory[];
+  nextCursor: string | null;
+}
+
+export type Remember = (input: RememberInput) => Promise<Memory>;
+export type Recall = (input: RecallInput) => Promise<RecallResult[]>;
+export type Forget = (input: ForgetInput) => Promise<ForgetResult>;
+
 /** What the REST API, SDK and MCP server expose. */
 export interface EngramApi {
-  remember(input: RememberInput): Promise<Memory>;
-  recall(input: RecallInput): Promise<RecallResult[]>;
-  forget(input: ForgetInput): Promise<ForgetResult>;
+  remember: Remember;
+  recall: Recall;
+  forget: Forget;
 }
 
 // ---------------------------------------------------------------------------
-// Embeddings (P4, Neha)
+// Embeddings (P4) and summaries (A5)
 // ---------------------------------------------------------------------------
 
 /** Some providers (Voyage AI) embed stored text and search queries differently. */
 export type EmbedKind = "document" | "query";
 
-export interface Embedder {
-  /** Shown in logs and stored with index settings, e.g. "voyage-3.5". */
+export interface EmbeddingProvider {
+  /** e.g. "Xenova/all-MiniLM-L6-v2". A database is bound to one model. */
   readonly model: string;
   /** Vector length. The vector search index is built for exactly this length. */
   readonly dimensions: number;
-  embed(texts: string[], kind: EmbedKind): Promise<number[][]>;
+  embed(texts: string[], kind?: EmbedKind): Promise<number[][]>;
+}
+
+/** Older name for EmbeddingProvider. */
+export type Embedder = EmbeddingProvider;
+
+export interface Summarizer {
+  summarize(episodes: readonly Pick<MemoryDoc, "content" | "createdAt">[]): Promise<string>;
 }

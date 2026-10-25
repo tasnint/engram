@@ -1,0 +1,31 @@
+{
+  "name": "@engram-memory/sdk",
+  "version": "0.1.0",
+  "description": "Typed client for the Engram memory API",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "prepack": "pnpm build"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts"
+}

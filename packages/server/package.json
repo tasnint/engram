@@ -1,0 +1,30 @@
+{
+  "name": "@engram/server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Engram REST API: /remember, /recall, /forget, /memories with per-namespace API keys.",
+  "type": "module",
+  "main": "./dist/app.js",
+  "types": "./dist/app.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/app.d.ts",
+      "default": "./dist/app.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "echo 'API tests run in tests/integration'",
+    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
+    "start": "node --env-file-if-exists=../../.env dist/main.js"
+  },
+  "dependencies": {
+    "@engram/core": "workspace:*",
+    "@fastify/swagger": "9.9.2",
+    "@fastify/swagger-ui": "5.2.6",
+    "fastify": "5.12.7",
+    "mongodb": "7.7.0",
+    "zod": "4.6.7"
+  }
+}

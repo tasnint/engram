@@ -1,6 +1,7 @@
 {
   "name": "@engram/core",
   "version": "0.1.0",
+  "private": true,
   "description": "Engram's memory engine: storage, search and ranking on MongoDB.",
   "type": "module",
   "main": "./dist/index.js",
@@ -17,11 +18,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --project unit",
-    "test:integration": "vitest run --project integration --passWithNoTests",
-    "db:seed": "tsx src/scripts/seed.ts"
+    "test": "vitest run",
+    "db:init": "tsx --env-file-if-exists=../../.env src/scripts/init-db.ts",
+    "db:seed": "tsx --env-file-if-exists=../../.env src/scripts/seed.ts",
+    "lifecycle": "tsx --env-file-if-exists=../../.env src/scripts/lifecycle.ts"
   },
   "dependencies": {
-    "mongodb": "7.7.0"
+    "@huggingface/transformers": "3.8.1",
+    "mongodb": "7.7.0",
+    "zod": "4.6.7"
   }
 }
