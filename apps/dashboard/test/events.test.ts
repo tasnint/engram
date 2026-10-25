@@ -21,9 +21,11 @@ const change = (c: object) =>
 
 describe("change stream feed", () => {
   it("never ships embeddings", () => {
-    expect(changeStreamPipeline("bot")[1]).toEqual({
-      $project: { "fullDocument.embedding": 0, "updateDescription.updatedFields.embedding": 0 },
-    });
+    const hidden = changeStreamPipeline("bot")[1]!.$project;
+    for (const field of ["embedding", "contentHash", "decayAt"]) {
+      expect(hidden[`fullDocument.${field}`]).toBe(0);
+      expect(hidden[`updateDescription.updatedFields.${field}`]).toBe(0);
+    }
   });
 
   it("maps inserts, updates and deletes", () => {

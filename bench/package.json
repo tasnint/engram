@@ -1,0 +1,16 @@
+{
+  "name": "@engram/bench",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Write and recall benchmarks (X2).",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "write": "tsx --env-file-if-exists=../.env write.ts",
+    "recall": "tsx --env-file-if-exists=../.env recall.ts"
+  },
+  "dependencies": {
+    "@engram/core": "workspace:*",
+    "mongodb": "7.7.0"
+  }
+}

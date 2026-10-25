@@ -1,28 +1,23 @@
 /**
- * recall() against a real MongoDB + mongot. Start one with `pnpm db:up`.
- * Skips itself (with a message) if no search-capable database is reachable.
+ * recall() against a real MongoDB + mongot. Run with MONGODB_TEST_URI pointing
+ * at `pnpm db:up`. Skips itself if the database has no search (plain mongod).
  */
 import { MongoClient, ObjectId, type Collection, type Db } from "mongodb";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
-  DEFAULT_MONGODB_URI,
   ensureSearchIndexes,
   HashEmbedder,
   MEMORIES_COLLECTION,
   recall,
-  TEXT_INDEX_NAME,
-  VECTOR_INDEX_NAME,
   waitForSearchIndexes,
   type MemoryDoc,
   type MemoryType,
   type RecallInput,
-} from "../../src/index.js";
+} from "@engram/core";
+import { canUseSearch, waitUntilSearchable } from "./search.js";
 
-const uri = process.env.MONGODB_URI ?? DEFAULT_MONGODB_URI;
+const uri = process.env.MONGODB_TEST_URI!;
 const searchAvailable = await canUseSearch(uri);
-if (!searchAvailable) {
-  console.warn(`Skipping integration tests: no MongoDB with search at ${uri}. Run \`pnpm db:up\`.`);
-}
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = new Date("2026-10-25T12:00:00Z");
@@ -94,12 +89,12 @@ describe.skipIf(!searchAvailable)("recall (integration)", () => {
           createdAt,
           expiresAt: null,
           status: f.status ?? "active",
-          source: {},
+          source: { sessionId: null, messageId: null },
           consolidatedInto: null,
         };
       }),
     );
-    await waitUntilSearchable(memories, fixtures.length);
+    await waitUntilSearchable(memories, embedder, fixtures.length);
   });
 
   afterAll(async () => {
@@ -208,64 +203,3 @@ describe.skipIf(!searchAvailable)("recall (integration)", () => {
     expect(untouched).toBe(0);
   });
 });
-
-async function canUseSearch(uri: string): Promise<boolean> {
-  const client = new MongoClient(uri, { serverSelectionTimeoutMS: 2000 });
-  try {
-    await client.connect();
-    const probe = client.db("engram_probe").collection("probe");
-    await probe.insertOne({});
-    await probe.listSearchIndexes().toArray();
-    await client.db("engram_probe").dropDatabase();
-    return true;
-  } catch {
-    return false;
-  } finally {
-    await client.close();
-  }
-}
-
-/** mongot syncs from the oplog, so new documents take a moment to become searchable. */
-async function waitUntilSearchable(
-  memories: Collection<MemoryDoc>,
-  expected: number,
-): Promise<void> {
-  const deadline = Date.now() + 60_000;
-  for (;;) {
-    const [meta] = await memories
-      .aggregate<{ count: { total: number } }>([
-        {
-          $searchMeta: {
-            index: TEXT_INDEX_NAME,
-            exists: { path: "content" },
-            count: { type: "total" },
-          },
-        },
-      ])
-      .toArray();
-    const textCount = meta?.count.total ?? 0;
-    // The vector index syncs separately, so check it too.
-    const [vec] = await memories
-      .aggregate<{ n: number }>([
-        {
-          $vectorSearch: {
-            index: VECTOR_INDEX_NAME,
-            path: "embedding",
-            queryVector: (await embedder.embed(["probe"], "query"))[0]!,
-            limit: 100,
-            numCandidates: 100,
-          },
-        },
-        { $count: "n" },
-      ])
-      .toArray();
-    const vectorCount = vec?.n ?? 0;
-    if (textCount >= expected && vectorCount >= expected) return;
-    if (Date.now() > deadline) {
-      throw new Error(
-        `Searchable so far: text ${textCount}/${expected}, vector ${vectorCount}/${expected}`,
-      );
-    }
-    await new Promise((r) => setTimeout(r, 300));
-  }
-}

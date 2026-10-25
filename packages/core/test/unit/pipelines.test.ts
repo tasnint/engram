@@ -32,9 +32,9 @@ describe("vector search pipeline", () => {
     expect(f.$and).toContainEqual({ createdAt: { $gte: since } });
   });
 
-  it("never returns embeddings", () => {
+  it("never returns embeddings or storage-only fields", () => {
     const p = buildVectorPipeline(scope, [0.1, 0.2], { limit: 10 });
-    expect(p.at(-1)).toEqual({ $project: { embedding: 0 } });
+    expect(p.at(-1)).toEqual({ $project: { embedding: 0, contentHash: 0, decayAt: 0 } });
     expect(p[0]?.$vectorSearch.numCandidates).toBe(150);
   });
 

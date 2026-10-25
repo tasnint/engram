@@ -74,6 +74,11 @@ export function App() {
         .stats(scope.namespace, scope.userId)
         .then(setStats)
         .catch(() => {});
+      // Keep the per-user counts in the picker current too.
+      api
+        .scopes()
+        .then(setScopes)
+        .catch(() => {});
     }, 1000);
   }, [scope]);
 
@@ -489,6 +494,9 @@ function MemoryTable({ memories }: { memories: Memory[] }) {
             <th className="right">Importance</th>
             <th className="right">Recalled</th>
             <th className="right">Saved</th>
+            <th>
+              <span className="sr-only">Actions</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -505,10 +513,41 @@ function MemoryTable({ memories }: { memories: Memory[] }) {
               <td className="right num">{m.importance.toFixed(2)}</td>
               <td className="right num">{m.accessCount}</td>
               <td className="right num muted">{new Date(m.createdAt).toLocaleDateString()}</td>
+              <td className="right">
+                <DeleteButton id={m._id} />
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** Two clicks to delete: the first asks, the second forgets. The row disappears when the change stream reports it. */
+function DeleteButton({ id }: { id: string }) {
+  const [state, setState] = useState<"idle" | "confirm" | "busy" | "error">("idle");
+  useEffect(() => {
+    if (state !== "confirm") return;
+    const timer = setTimeout(() => setState("idle"), 4000);
+    return () => clearTimeout(timer);
+  }, [state]);
+  return (
+    <button
+      type="button"
+      className={`link-button ${state === "confirm" ? "danger" : ""}`}
+      disabled={state === "busy"}
+      onClick={() => {
+        if (state !== "confirm") return setState("confirm");
+        setState("busy");
+        api.forget(id).catch(() => setState("error"));
+      }}
+    >
+      {
+        { idle: "Delete", confirm: "Confirm delete", busy: "Deleting", error: "Couldn't delete" }[
+          state
+        ]
+      }
+    </button>
   );
 }

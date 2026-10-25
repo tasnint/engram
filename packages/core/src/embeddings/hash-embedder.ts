@@ -1,4 +1,4 @@
-import type { EmbedKind, Embedder } from "../types.js";
+import type { EmbedKind, EmbeddingProvider } from "../types.js";
 
 const STOPWORDS = new Set(
   (
@@ -15,7 +15,7 @@ const STOPWORDS = new Set(
  * words get similar vectors. It knows nothing about meaning ("car" and
  * "automobile" don't match), so use a real model (P4) for real recall quality.
  */
-export class HashEmbedder implements Embedder {
+export class HashEmbedder implements EmbeddingProvider {
   readonly model = "hash-v1";
   readonly dimensions: number;
 
@@ -26,7 +26,7 @@ export class HashEmbedder implements Embedder {
     this.dimensions = dimensions;
   }
 
-  async embed(texts: string[], _kind: EmbedKind): Promise<number[][]> {
+  async embed(texts: string[], _kind?: EmbedKind): Promise<number[][]> {
     return texts.map((text) => this.embedOne(text));
   }
 

@@ -4,7 +4,7 @@
  * unit tested without a database.
  */
 import type { Document } from "mongodb";
-import { TEXT_INDEX_NAME, VECTOR_INDEX_NAME } from "../config.js";
+import { HIDDEN_FIELDS, TEXT_INDEX_NAME, VECTOR_INDEX_NAME } from "../config.js";
 import type { MemoryType } from "../types.js";
 
 export interface SearchScope {
@@ -83,7 +83,8 @@ export function textSearchStage(scope: SearchScope, query: string): Document {
   };
 }
 
-const HIDE_EMBEDDING = { $project: { embedding: 0 } };
+/** Never return embeddings or storage-only fields. */
+const HIDE_INTERNAL = { $project: HIDDEN_FIELDS };
 
 export function buildVectorPipeline(
   scope: SearchScope,
@@ -93,7 +94,7 @@ export function buildVectorPipeline(
   return [
     vectorSearchStage(scope, queryVector, options),
     { $addFields: { [VECTOR_SCORE_FIELD]: { $meta: "vectorSearchScore" } } },
-    HIDE_EMBEDDING,
+    HIDE_INTERNAL,
   ];
 }
 
@@ -102,7 +103,7 @@ export function buildTextPipeline(scope: SearchScope, query: string, limit: numb
     textSearchStage(scope, query),
     { $limit: limit },
     { $addFields: { [TEXT_SCORE_FIELD]: { $meta: "searchScore" } } },
-    HIDE_EMBEDDING,
+    HIDE_INTERNAL,
   ];
 }
 
@@ -137,6 +138,6 @@ export function buildRankFusionPipeline(
     },
     { $limit: options.limit },
     { $addFields: { [FUSION_DETAILS_FIELD]: { $meta: "scoreDetails" } } },
-    HIDE_EMBEDDING,
+    HIDE_INTERNAL,
   ];
 }

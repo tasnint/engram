@@ -31,7 +31,16 @@ export function changeStreamPipeline(namespace: string): Document[] {
         ],
       },
     },
-    { $project: { "fullDocument.embedding": 0, "updateDescription.updatedFields.embedding": 0 } },
+    {
+      $project: {
+        "fullDocument.embedding": 0,
+        "fullDocument.contentHash": 0,
+        "fullDocument.decayAt": 0,
+        "updateDescription.updatedFields.embedding": 0,
+        "updateDescription.updatedFields.contentHash": 0,
+        "updateDescription.updatedFields.decayAt": 0,
+      },
+    },
   ];
 }
 

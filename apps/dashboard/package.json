@@ -5,9 +5,9 @@
   "description": "Live view of what agents are remembering: stats, a memory browser with explained search results, and a feed driven by MongoDB change streams.",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --exclude 'web/**' server/main.ts",
+    "dev": "tsx watch --env-file-if-exists=../../.env --exclude 'web/**' server/main.ts",
     "build": "vite build",
-    "start": "NODE_ENV=production tsx server/main.ts",
+    "start": "NODE_ENV=production tsx --env-file-if-exists=../../.env server/main.ts",
     "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "test": "vitest run",
     "test:integration": "echo 'no integration tests'"

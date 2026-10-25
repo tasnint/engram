@@ -1,11 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Document } from "mongodb";
 import {
+  HIDDEN_FIELDS,
   MEMORY_TYPES,
+  MemoryService,
   recall,
   RecallInputError,
   type EngramDb,
-  type Embedder,
+  type EmbeddingProvider,
   type MemoryType,
   type RecallMode,
 } from "@engram/core";
@@ -17,17 +19,34 @@ class BadRequest extends Error {}
 const MAX_LIST = 200;
 
 /** Returns false for paths it doesn't own, so the caller can serve the web app instead. */
-export function createApi(engram: EngramDb, embedder: Embedder) {
+export function createApi(engram: EngramDb, embedder: EmbeddingProvider) {
   const { memories } = engram;
+  const service = new MemoryService(engram.db, { embeddings: embedder });
 
   return async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
     const url = new URL(req.url ?? "/", "http://localhost");
     if (!url.pathname.startsWith("/api/")) return false;
-    if (req.method !== "GET") {
-      sendJson(res, 405, { error: "Only GET is supported. Edits go through the Engram API (A6)." });
+    const q = url.searchParams;
+
+    // DELETE /api/memories/<id>: forget one memory (A4's forget()).
+    const deleteMatch = url.pathname.match(/^\/api\/memories\/([0-9a-f]{24})$/);
+    if (req.method === "DELETE" && deleteMatch) {
+      try {
+        // The dashboard is a local admin tool, so it isn't scoped to one namespace.
+        const result = await service.forget({ id: deleteMatch[1]! });
+        sendJson(res, 200, result);
+      } catch (error) {
+        console.error(error);
+        sendJson(res, 500, {
+          error: "Couldn't delete the memory. Check the dashboard server logs.",
+        });
+      }
       return true;
     }
-    const q = url.searchParams;
+    if (req.method !== "GET") {
+      sendJson(res, 405, { error: `${req.method} isn't supported on ${url.pathname}` });
+      return true;
+    }
 
     try {
       switch (url.pathname) {
@@ -67,7 +86,7 @@ export function createApi(engram: EngramDb, embedder: Embedder) {
           if (type) filter.type = memoryType(type);
           const limit = Math.min(Number(q.get("limit") ?? 50) || 50, MAX_LIST);
           const items = await memories
-            .find(filter, { projection: { embedding: 0 } })
+            .find(filter, { projection: HIDDEN_FIELDS })
             .sort({ createdAt: -1, _id: -1 })
             .limit(limit)
             .toArray();

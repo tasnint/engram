@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "paths": {
+      "@engram/core": ["./packages/core/src/index.ts"],
+      "@engram/server": ["./packages/server/src/app.ts"]
+    }
+  },
+  "include": ["tests", "vitest.integration.config.ts"]
+}

@@ -574,3 +574,35 @@ td.right {
 tr.archived td {
   opacity: 0.55;
 }
+
+.link-button {
+  font: inherit;
+  font-size: 0.8rem;
+  background: none;
+  border: 0;
+  padding: 2px 4px;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.link-button:hover {
+  color: var(--fg);
+  text-decoration: underline;
+}
+.link-button.danger {
+  color: #b3261e;
+  font-weight: 600;
+}
+@media (prefers-color-scheme: dark) {
+  .link-button.danger {
+    color: #f2b8b5;
+  }
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

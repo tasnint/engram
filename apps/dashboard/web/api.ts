@@ -68,6 +68,12 @@ export const api = {
     get<{ memories: Memory[] }>("/api/memories", { namespace, userId, limit: "100" }).then(
       (r) => r.memories,
     ),
+  forget: async (id: string) => {
+    const res = await fetch(`/api/memories/${id}`, { method: "DELETE" });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error ?? `Delete failed (${res.status})`);
+    return body as { deleted: number };
+  },
   search: (namespace: string, userId: string, q: string, mode: SearchMode) =>
     get<{ results: SearchResult[] }>("/api/search", { namespace, userId, q, mode }).then(
       (r) => r.results,

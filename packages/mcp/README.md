@@ -17,11 +17,13 @@ Build first (`pnpm build` at the repo root), then add this to `claude_desktop_co
       "env": {
         "ENGRAM_NAMESPACE": "claude-desktop",
         "ENGRAM_USER_ID": "me",
-        "MONGODB_URI": "mongodb://localhost:27017/?directConnection=true"
+        "MONGODB_URI": "mongodb://localhost:27017/?directConnection=true",
+        "EMBEDDING_PROVIDER": "local",
+        "DEDUP_MODE": "vector"
       }
     }
   }
 }
 ```
 
-`remember` and `forget_memory` return a clear error until Track A's A2 and A4 are merged.
+Use the same `EMBEDDING_PROVIDER` as the rest of your setup. A database is bound to one embedding model.

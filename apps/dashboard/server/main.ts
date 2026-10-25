@@ -7,7 +7,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
-import { connect, createEmbedderFromEnv } from "@engram/core";
+import { connect, embeddingFromEnvironment } from "@engram/core";
 import { createApi } from "./api.js";
 
 const port = Number(process.env.DASHBOARD_PORT ?? 4317);
@@ -15,7 +15,7 @@ const production = process.env.NODE_ENV === "production";
 const root = fileURLToPath(new URL("..", import.meta.url));
 
 const engram = await connect();
-const api = createApi(engram, createEmbedderFromEnv());
+const api = createApi(engram, embeddingFromEnvironment());
 
 let webHandler: (
   req: import("node:http").IncomingMessage,

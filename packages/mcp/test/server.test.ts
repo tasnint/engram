@@ -18,7 +18,7 @@ const memory: Memory = {
   createdAt: new Date("2026-10-01T00:00:00Z"),
   expiresAt: null,
   status: "active",
-  source: {},
+  source: { sessionId: null, messageId: null },
   consolidatedInto: null,
 };
 const hit: RecallResult = {

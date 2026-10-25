@@ -2,7 +2,7 @@
  * recall(): find the memories that matter for a query.
  *
  *   1. Search: run meaning search and keyword search in parallel (or one of them).
- *   2. Fuse:   merge the two ranked lists with reciprocal rank fusion (B3).
+ *   2. Fuse:   merge the two lists (B3), by relative score (default) or by rank (RRF).
  *   3. Rank:   re-score with relevance, importance and recency (B4).
  *   4. Track:  bump accessCount / lastAccessedAt on what was returned (B4).
  */
@@ -17,7 +17,14 @@ import type {
   RecallResult,
 } from "../types.js";
 import { MEMORY_TYPES } from "../types.js";
-import { DEFAULT_RRF_K, reciprocalRankFusion, type RankedList } from "./fusion.js";
+import { HIDDEN_FIELDS } from "../config.js";
+import { EngramError } from "../errors.js";
+import {
+  DEFAULT_RRF_K,
+  reciprocalRankFusion,
+  relativeScoreFusion,
+  type ScoredList,
+} from "./fusion.js";
 import {
   buildRankFusionPipeline,
   buildTextPipeline,
@@ -46,6 +53,13 @@ export interface RecallOptions {
    * - "server": inside MongoDB with $rankFusion (MongoDB 8.0+)
    */
   fusion?: "app" | "server";
+  /**
+   * How the app merges keyword and meaning results (fusion: "app" only):
+   * - "score": relative score fusion, keeps score gaps (default)
+   * - "rank":  reciprocal rank fusion, uses positions only
+   * See bench/recall.ts for how they compare.
+   */
+  fusionMethod?: "score" | "rank";
   /** Each search fetches k × this many candidates for ranking to choose from. Default 4. */
   candidateMultiplier?: number;
   rrfK?: number;
@@ -79,8 +93,12 @@ export async function recall(
       ? await searchWithServerFusion(deps, scope, query, fetchLimit, options)
       : await searchWithAppFusion(deps, scope, query, mode, fetchLimit, options);
 
+  // MongoDB's TTL monitor deletes expired memories about once a minute, so
+  // skip any that have expired but haven't been removed yet.
+  const live = candidates.filter((c) => !c.doc.expiresAt || c.doc.expiresAt > now);
+
   const ranked = rankCandidates(
-    candidates.map((c) => ({
+    live.map((c) => ({
       item: c,
       rawRelevance: c.fusedScore,
       importance: c.doc.importance,
@@ -139,27 +157,46 @@ async function searchWithAppFusion(
   const [vectorHits, textHits] = await Promise.all([
     runVector
       ? embedQuery(deps.embedder, query).then((vector) =>
-          deps.memories.aggregate<Memory>(buildVectorPipeline(scope, vector, { limit })).toArray(),
+          deps.memories
+            .aggregate<Memory & Document>(buildVectorPipeline(scope, vector, { limit }))
+            .toArray(),
         )
       : Promise.resolve([]),
     runText
-      ? deps.memories.aggregate<Memory>(buildTextPipeline(scope, query, limit)).toArray()
+      ? deps.memories.aggregate<Memory & Document>(buildTextPipeline(scope, query, limit)).toArray()
       : Promise.resolve([]),
   ]);
 
-  const lists: RankedList<Memory>[] = [];
-  if (runVector)
-    lists.push({ name: "vector", items: vectorHits, weight: options.listWeights?.vector });
-  if (runText) lists.push({ name: "text", items: textHits, weight: options.listWeights?.text });
+  const lists: ScoredList<Memory & Document>[] = [];
+  if (runVector) {
+    lists.push({
+      name: "vector",
+      items: vectorHits,
+      weight: options.listWeights?.vector,
+      score: (m) => Number(m[VECTOR_SCORE_FIELD] ?? 0),
+    });
+  }
+  if (runText) {
+    lists.push({
+      name: "text",
+      items: textHits,
+      weight: options.listWeights?.text,
+      score: (m) => Number(m[TEXT_SCORE_FIELD] ?? 0),
+      floor: "zero",
+    });
+  }
 
-  return reciprocalRankFusion(lists, (m) => m._id.toHexString(), options.rrfK ?? DEFAULT_RRF_K).map(
-    (f) => ({
-      doc: f.item,
-      fusedScore: f.score,
-      vectorRank: f.ranks.vector ?? null,
-      textRank: f.ranks.text ?? null,
-    }),
-  );
+  const id = (m: Memory) => m._id.toHexString();
+  const fused =
+    options.fusionMethod === "rank"
+      ? reciprocalRankFusion(lists, id, options.rrfK ?? DEFAULT_RRF_K)
+      : relativeScoreFusion(lists, id);
+  return fused.map((f) => ({
+    doc: f.item,
+    fusedScore: f.score,
+    vectorRank: f.ranks.vector ?? null,
+    textRank: f.ranks.text ?? null,
+  }));
 }
 
 async function searchWithServerFusion(
@@ -205,7 +242,12 @@ async function embedQuery(embedder: Embedder, query: string): Promise<number[]> 
   return vector;
 }
 
-const INTERNAL_FIELDS = [VECTOR_SCORE_FIELD, TEXT_SCORE_FIELD, FUSION_DETAILS_FIELD, "embedding"];
+const INTERNAL_FIELDS = [
+  VECTOR_SCORE_FIELD,
+  TEXT_SCORE_FIELD,
+  FUSION_DETAILS_FIELD,
+  ...Object.keys(HIDDEN_FIELDS),
+];
 
 function toMemory(doc: Memory & Document): Memory {
   const copy: Document = { ...doc };
@@ -213,8 +255,12 @@ function toMemory(doc: Memory & Document): Memory {
   return copy as Memory;
 }
 
-export class RecallInputError extends Error {
-  override name = "RecallInputError";
+/** Bad recall input. The REST API turns it into HTTP 400. */
+export class RecallInputError extends EngramError {
+  constructor(message: string) {
+    super("INVALID_RECALL", message, 400);
+    this.name = "RecallInputError";
+  }
 }
 
 function validate(input: RecallInput): {

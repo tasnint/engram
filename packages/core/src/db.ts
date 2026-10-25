@@ -14,10 +14,10 @@ export interface ConnectOptions {
   dbName?: string;
 }
 
-/** Connects using MONGODB_URI / ENGRAM_DB from the environment unless overridden. */
+/** Connects using MONGODB_URI / MONGODB_DATABASE from the environment unless overridden. */
 export async function connect(options: ConnectOptions = {}): Promise<EngramDb> {
   const uri = options.uri ?? process.env.MONGODB_URI ?? DEFAULT_MONGODB_URI;
-  const dbName = options.dbName ?? process.env.ENGRAM_DB ?? DEFAULT_DB_NAME;
+  const dbName = options.dbName ?? process.env.MONGODB_DATABASE ?? DEFAULT_DB_NAME;
   const client = await new MongoClient(uri, { appName: "engram" }).connect();
   const db = client.db(dbName);
   return {
