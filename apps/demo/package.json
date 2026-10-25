@@ -1,0 +1,20 @@
+{
+  "name": "@engram/demo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A chat agent on Claude that remembers you between conversations, using Engram (X1).",
+  "type": "module",
+  "scripts": {
+    "start": "tsx --env-file-if-exists=../../.env src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.3.0",
+    "@engram/core": "workspace:*",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "mongodb": "7.7.0"
+  }
+}
