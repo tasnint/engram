@@ -1,0 +1,35 @@
+{
+  "name": "@engram/mcp",
+  "version": "0.1.0",
+  "description": "MCP server that gives any MCP-capable agent (Claude Desktop, Claude Code, ...) long-term memory through Engram.",
+  "type": "module",
+  "bin": {
+    "engram-mcp": "./dist/bin.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:integration": "echo 'no integration tests'",
+    "start": "node dist/bin.js"
+  },
+  "dependencies": {
+    "@engram/core": "workspace:*",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "mongodb": "7.7.0"
+  }
+}
