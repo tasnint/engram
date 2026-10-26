@@ -84,7 +84,11 @@ export function App() {
 
   const onEvent = useCallback(
     (event: FeedEvent) => {
-      if (event.kind !== "delete" && event.memory.userId !== scope?.userId) return;
+      if (event.kind !== "delete" && event.memory.userId !== scope?.userId) {
+        // Another user's memory: don't show it, but refresh the picker so new users appear.
+        refreshStatsSoon();
+        return;
+      }
 
       setMemories((list) => {
         if (event.kind === "delete") return list.filter((m) => m._id !== event.id);
