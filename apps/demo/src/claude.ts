@@ -1,7 +1,7 @@
 /**
  * Optional backend: Claude via the Anthropic API (needs ANTHROPIC_API_KEY,
  * which is a paid account). The default backend is the free local model in
- * ollama.ts.
+ * local.ts.
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";

@@ -6,6 +6,7 @@ import { MongoClient } from "mongodb";
 import { DEFAULT_MONGODB_URI } from "../config.js";
 import { initializeDatabase } from "../database.js";
 import { embeddingFromEnvironment } from "../embeddings/index.js";
+import { LocalChatModel, LocalSummarizer } from "../llm/local-chat.js";
 import { ChatCompletionSummarizer } from "../summarizer.js";
 import { consolidateEpisodes, decayImportance } from "../write/lifecycle.js";
 
@@ -29,21 +30,17 @@ try {
   } else {
     const namespace = process.argv[3];
     const days = Number(process.argv[4] ?? 7);
-    if (
-      !namespace ||
-      !Number.isFinite(days) ||
-      days <= 0 ||
-      !process.env.SUMMARIZER_URL ||
-      !process.env.SUMMARIZER_MODEL
-    )
-      throw new Error(
-        "Set SUMMARIZER_URL and SUMMARIZER_MODEL, and supply a namespace and positive minimum age.",
-      );
-    const summarizer = new ChatCompletionSummarizer({
-      url: process.env.SUMMARIZER_URL,
-      model: process.env.SUMMARIZER_MODEL,
-      apiKey: process.env.SUMMARIZER_API_KEY,
-    });
+    if (!namespace || !Number.isFinite(days) || days <= 0)
+      throw new Error("Supply a namespace and a positive minimum age in days.");
+    // An OpenAI-compatible endpoint if configured, otherwise the free local model.
+    const summarizer =
+      process.env.SUMMARIZER_URL && process.env.SUMMARIZER_MODEL
+        ? new ChatCompletionSummarizer({
+            url: process.env.SUMMARIZER_URL,
+            model: process.env.SUMMARIZER_MODEL,
+            apiKey: process.env.SUMMARIZER_API_KEY,
+          })
+        : new LocalSummarizer(new LocalChatModel({ model: process.env.CHAT_MODEL || undefined }));
     const summaries = await consolidateEpisodes({
       client,
       db,

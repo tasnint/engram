@@ -4,8 +4,8 @@
  * pnpm demo --script        play two scripted conversations: tell it things in
  *                           the first, see it use them in the second
  *
- * Runs on a free local model by default (Ollama: `pnpm llm:up`). Set
- * DEMO_LLM=claude to use Claude instead (needs a paid ANTHROPIC_API_KEY).
+ * Runs on a small free model on your CPU by default (downloads ~365 MB once).
+ * Set DEMO_LLM=claude to use Claude instead (needs a paid ANTHROPIC_API_KEY).
  * Needs the database from `pnpm db:up && pnpm db:init`.
  */
 import { randomUUID } from "node:crypto";
@@ -19,12 +19,13 @@ import {
   initializeDatabase,
 } from "@engram/core";
 import { CLAUDE_MODEL, createClaudeConversation } from "./claude.js";
-import { createOllamaConversation, DEFAULT_OLLAMA_MODEL } from "./ollama.js";
+import { DEFAULT_CHAT_MODEL } from "@engram/core";
+import { createLocalConversation } from "./local.js";
 import type { Conversation, MemoryEvent, MemoryToolOptions } from "./tools.js";
 
 const NAMESPACE = process.env.ENGRAM_NAMESPACE ?? "demo-agent";
-const BACKEND = process.env.DEMO_LLM === "claude" ? "claude" : "ollama";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || DEFAULT_OLLAMA_MODEL;
+const BACKEND = process.env.DEMO_LLM === "claude" ? "claude" : "local";
+const CHAT_MODEL = process.env.CHAT_MODEL || DEFAULT_CHAT_MODEL;
 const args = process.argv.slice(2);
 const scripted = args.includes("--script");
 const userFlag = args.indexOf("--user");
@@ -58,14 +59,10 @@ try {
     };
     return BACKEND === "claude"
       ? createClaudeConversation(options)
-      : createOllamaConversation({
-          ...options,
-          baseUrl: process.env.OLLAMA_URL,
-          model: OLLAMA_MODEL,
-        });
+      : createLocalConversation(options);
   };
 
-  const modelName = BACKEND === "claude" ? CLAUDE_MODEL : `${OLLAMA_MODEL} (local, free)`;
+  const modelName = BACKEND === "claude" ? CLAUDE_MODEL : `${CHAT_MODEL} (local, free)`;
   console.log(dim(`Engram demo · ${modelName} · ${NAMESPACE}/${userId} · ${embeddings.model}\n`));
 
   if (scripted) {
@@ -76,7 +73,7 @@ try {
       ],
       [
         "Can you give me a code example for retrying an HTTP request with backoff?",
-        "I'm picking a restaurant for a team dinner. Anything I should keep in mind?",
+        "What should I avoid ordering at the team dinner tonight?",
         "What do you remember about our last deploy problem?",
       ],
     ];
@@ -88,7 +85,7 @@ try {
       for (const turn of turns) {
         console.log(`\n${bold("You:")} ${turn}`);
         const { text } = await conversation.send(turn);
-        console.log(`${bold("Claude:")} ${text}`);
+        console.log(`${bold(BACKEND === "claude" ? "Claude:" : "Assistant:")} ${text}`);
       }
       console.log();
     }
@@ -104,7 +101,7 @@ try {
       const line = (await rl.question(bold("You: "))).trim();
       if (!line) break;
       const { text } = await conversation.send(line);
-      console.log(`${bold("Claude:")} ${text}\n`);
+      console.log(`${bold(BACKEND === "claude" ? "Claude:" : "Assistant:")} ${text}\n`);
     }
     rl.close();
   }

@@ -1,6 +1,7 @@
 /**
  * The demo agent's memory: three tools backed by Engram, called in-process.
- * Shared by every model backend (local Ollama model or Claude).
+ * Used by the Claude backend, which lets the model decide when to call them.
+ * The local backend (local.ts) calls Engram directly instead.
  */
 import { MEMORY_TYPES, type Engram } from "@engram/core";
 import { z } from "zod";
