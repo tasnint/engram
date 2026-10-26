@@ -18,6 +18,8 @@
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
     "db:reset": "docker compose down -v",
+    "llm:up": "docker compose --profile llm up -d ollama && docker compose exec ollama ollama pull ${OLLAMA_MODEL:-qwen2.5:3b}",
+    "llm:down": "docker compose --profile llm stop ollama",
     "db:init": "pnpm --filter @engram/core db:init",
     "db:seed": "pnpm --filter @engram/core db:seed",
     "lifecycle": "pnpm --filter @engram/core lifecycle",

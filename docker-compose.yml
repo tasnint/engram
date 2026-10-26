@@ -2,6 +2,8 @@
 #   mongod  - the database, a single-member replica set, on localhost:27017
 #   init    - one-shot: starts the replica set and creates mongot's user
 #   mongot  - the search engine behind $search and $vectorSearch
+#   ollama  - optional free local LLM for the demo agent and consolidation
+#             (pnpm llm:up; not started by db:up)
 name: engram
 
 services:
@@ -54,6 +56,15 @@ services:
     # No healthcheck: the image may not ship curl. `pnpm db:indexes` waits until search is ready.
     restart: unless-stopped
 
+  ollama:
+    image: ollama/ollama:0.40.10
+    profiles: ["llm"]
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+
 secrets:
   mongot-password:
     file: ./docker/mongot-password
@@ -61,3 +72,4 @@ secrets:
 volumes:
   mongod-data:
   mongot-data:
+  ollama-models:

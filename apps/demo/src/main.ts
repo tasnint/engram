@@ -4,8 +4,9 @@
  * pnpm demo --script        play two scripted conversations: tell it things in
  *                           the first, see it use them in the second
  *
- * Needs ANTHROPIC_API_KEY (or an `ant auth login` profile) and the database
- * from `pnpm db:up && pnpm db:init`.
+ * Runs on a free local model by default (Ollama: `pnpm llm:up`). Set
+ * DEMO_LLM=claude to use Claude instead (needs a paid ANTHROPIC_API_KEY).
+ * Needs the database from `pnpm db:up && pnpm db:init`.
  */
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
@@ -17,9 +18,13 @@ import {
   embeddingFromEnvironment,
   initializeDatabase,
 } from "@engram/core";
-import { createConversation, MODEL, type MemoryEvent } from "./agent.js";
+import { CLAUDE_MODEL, createClaudeConversation } from "./claude.js";
+import { createOllamaConversation, DEFAULT_OLLAMA_MODEL } from "./ollama.js";
+import type { Conversation, MemoryEvent, MemoryToolOptions } from "./tools.js";
 
 const NAMESPACE = process.env.ENGRAM_NAMESPACE ?? "demo-agent";
+const BACKEND = process.env.DEMO_LLM === "claude" ? "claude" : "ollama";
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || DEFAULT_OLLAMA_MODEL;
 const args = process.argv.slice(2);
 const scripted = args.includes("--script");
 const userFlag = args.indexOf("--user");
@@ -43,16 +48,25 @@ try {
     embeddings,
     duplicates: duplicatesFromEnvironment(db.db),
   });
-  const newConversation = () =>
-    createConversation({
+  const newConversation = (): Conversation => {
+    const options: MemoryToolOptions = {
       engram,
       namespace: NAMESPACE,
       userId,
       sessionId: randomUUID(),
       onMemory: showMemory,
-    });
+    };
+    return BACKEND === "claude"
+      ? createClaudeConversation(options)
+      : createOllamaConversation({
+          ...options,
+          baseUrl: process.env.OLLAMA_URL,
+          model: OLLAMA_MODEL,
+        });
+  };
 
-  console.log(dim(`Engram demo · ${MODEL} · ${NAMESPACE}/${userId} · ${embeddings.model}\n`));
+  const modelName = BACKEND === "claude" ? CLAUDE_MODEL : `${OLLAMA_MODEL} (local, free)`;
+  console.log(dim(`Engram demo · ${modelName} · ${NAMESPACE}/${userId} · ${embeddings.model}\n`));
 
   if (scripted) {
     const sessions = [

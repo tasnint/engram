@@ -6,6 +6,8 @@ AI assistants forget everything when a conversation ends. With Engram, an agent 
 
 Built by **Tanisha** (Track B: search, ranking, MCP, dashboard) and **Neha** (Track A: write path, lifecycle, REST API, SDK).
 
+**Everything runs free, on your own machine.** The database, search, embedding model and the LLM used by the demo agent and consolidation are all open source and run locally in Docker. No accounts or API keys. Claude and Voyage AI are optional upgrades if you have keys.
+
 ## Quick start
 
 Requires Node 22 (`nvm use`), pnpm 10 and Docker. On Windows with WSL, turn on WSL integration in Docker Desktop (Settings → Resources → WSL integration).
@@ -24,11 +26,17 @@ Then any of:
 ```bash
 pnpm dev:dashboard      # live dashboard on http://localhost:4317
 pnpm dev:api            # REST API on http://localhost:3000, docs at /docs
-pnpm demo --script      # Claude remembering you across two conversations (needs ANTHROPIC_API_KEY)
+```
+
+For the demo agent, start the free local LLM first (downloads about 2 GB once):
+
+```bash
+pnpm llm:up             # Ollama in Docker + qwen2.5:3b
+pnpm demo --script      # an agent remembering you across two conversations
 pnpm demo               # chat with it yourself
 ```
 
-The first run downloads the local embedding model (`Xenova/all-MiniLM-L6-v2`, about 25 MB). Nothing else needs an API key except the demo agent.
+The first run also downloads the local embedding model (`Xenova/all-MiniLM-L6-v2`, about 25 MB). If port 27017 is taken (for example by a MongoDB installed on Windows), set `MONGODB_PORT=27018` and the same port in `MONGODB_URI` in `.env`.
 
 ## How it fits together
 
@@ -90,7 +98,7 @@ The full contract is in [packages/core/src/types.ts](packages/core/src/types.ts)
 - **`remember()` (A2).** Validates input with Zod, embeds the content, derives tags and an importance score when the caller doesn't give them, and stores the memory.
 - **Duplicates (A3).** Identical text is caught by a partial unique index on a content hash, which stays correct even with concurrent writes. Near-duplicates (`DEDUP_MODE=vector`) are found with `$vectorSearch` on the same index recall uses. The existing memory is updated, merging tags and keeping its id and access history.
 - **Forgetting (A4).** TTL expiry, `forget()` for one memory or everything about a user, and importance decay with a 90-day half-life. Decay is based on elapsed time and never applied twice.
-- **Consolidation (A5).** `pnpm lifecycle consolidate <namespace>` groups each user's old episodes by day, summarizes them with any OpenAI-compatible endpoint (a local Ollama works), then inserts the summary and archives the originals in one multi-document transaction. If an episode changes or is deleted while the summary is being written, that group is skipped. If archiving fails, the summary insert rolls back.
+- **Consolidation (A5).** `pnpm lifecycle consolidate <namespace>` groups each user's old episodes by day, summarizes them with any OpenAI-compatible endpoint (by default the free local model from `pnpm llm:up`), then inserts the summary and archives the originals in one multi-document transaction. If an episode changes or is deleted while the summary is being written, that group is skipped. If archiving fails, the summary insert rolls back.
 - **API and SDK (A6, A7).** Fastify with per-namespace API keys (compared as hashes in constant time), Zod validation and OpenAPI docs. The SDK retries reads with backoff and never retries writes.
 
 ## Finding memories (Track B)
@@ -142,7 +150,7 @@ See [packages/mcp/README.md](packages/mcp/README.md). Each MCP server is locked 
 
 ## Configuration
 
-Everything is in [.env.example](.env.example). The main settings are `MONGODB_URI`, `EMBEDDING_PROVIDER` (`local`, `voyage` or `hash`), `API_KEYS`, `DEDUP_MODE` and, for consolidation, `SUMMARIZER_URL`/`SUMMARIZER_MODEL`.
+Everything is in [.env.example](.env.example). The main settings are `MONGODB_URI`, `EMBEDDING_PROVIDER` (`local`, `voyage` or `hash`), `API_KEYS`, `DEDUP_MODE`, `OLLAMA_MODEL`, and `DEMO_LLM` (`ollama`, or `claude` with a paid `ANTHROPIC_API_KEY`).
 
 A database is bound to one embedding model and vector length. To switch models, use a new database (`MONGODB_DATABASE`) or re-embed every memory.
 

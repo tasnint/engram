@@ -2,7 +2,10 @@ import Anthropic from "@anthropic-ai/sdk";
 import { ObjectId } from "mongodb";
 import { describe, expect, it, vi } from "vitest";
 import type { Engram, Memory } from "@engram/core";
-import { createConversation, MODEL } from "../src/agent.js";
+import {
+  CLAUDE_MODEL as MODEL,
+  createClaudeConversation as createConversation,
+} from "../src/claude.js";
 
 const memory: Memory = {
   _id: new ObjectId("65f000000000000000000001"),
@@ -65,7 +68,7 @@ const message = (content: object[], stop_reason: string) => ({
   usage: { input_tokens: 10, output_tokens: 10 },
 });
 
-describe("demo agent", () => {
+describe("Claude backend", () => {
   it("recalls through Engram, then answers, keeping the full history", async () => {
     const engram = fakeEngram();
     const { client, requests } = fakeClaude([
