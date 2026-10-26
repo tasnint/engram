@@ -39,8 +39,10 @@ export function App() {
     api
       .scopes()
       .then((list) => {
-        setScopes(list);
-        if (list[0]) setScopeKey((current) => current || keyOf(list[0]!));
+        const all = withRequestedScope(list);
+        setScopes(all);
+        const first = REQUESTED_SCOPE ?? all[0];
+        if (first) setScopeKey((current) => current || keyOf(first));
       })
       .catch((e: Error) => setError(e.message));
   }, []);
@@ -77,7 +79,7 @@ export function App() {
       // Keep the per-user counts in the picker current too.
       api
         .scopes()
-        .then(setScopes)
+        .then((list) => setScopes(withRequestedScope(list)))
         .catch(() => {});
     }, 1000);
   }, [scope]);
@@ -210,6 +212,22 @@ export function App() {
       )}
     </div>
   );
+}
+
+/**
+ * A user to open on, from the link: /?user=u_video (optionally &namespace=...).
+ * Works before that user has any memories, so a demo can be watched from its
+ * first saved memory.
+ */
+const REQUESTED_SCOPE: Scope | null = (() => {
+  const params = new URLSearchParams(window.location.search);
+  const userId = params.get("user");
+  return userId ? { namespace: params.get("namespace") ?? "demo-agent", userId, count: 0 } : null;
+})();
+
+function withRequestedScope(list: Scope[]): Scope[] {
+  if (!REQUESTED_SCOPE || list.some((s) => keyOf(s) === keyOf(REQUESTED_SCOPE))) return list;
+  return [REQUESTED_SCOPE, ...list];
 }
 
 function keyOf(s: { namespace: string; userId: string }) {
