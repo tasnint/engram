@@ -13,3 +13,4 @@ export * from "./write/lifecycle.js";
 export * from "./write/metadata.js";
 export * from "./engram.js";
 export * from "./samples.js";
+export * from "./llm/local-chat.js";

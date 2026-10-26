@@ -4,8 +4,9 @@
  * pnpm demo --script        play two scripted conversations: tell it things in
  *                           the first, see it use them in the second
  *
- * Needs ANTHROPIC_API_KEY (or an `ant auth login` profile) and the database
- * from `pnpm db:up && pnpm db:init`.
+ * Runs on a small free model on your CPU by default (downloads ~365 MB once).
+ * Set DEMO_LLM=claude to use Claude instead (needs a paid ANTHROPIC_API_KEY).
+ * Needs the database from `pnpm db:up && pnpm db:init`.
  */
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
@@ -17,9 +18,14 @@ import {
   embeddingFromEnvironment,
   initializeDatabase,
 } from "@engram/core";
-import { createConversation, MODEL, type MemoryEvent } from "./agent.js";
+import { CLAUDE_MODEL, createClaudeConversation } from "./claude.js";
+import { DEFAULT_CHAT_MODEL } from "@engram/core";
+import { createLocalConversation } from "./local.js";
+import type { Conversation, MemoryEvent, MemoryToolOptions } from "./tools.js";
 
 const NAMESPACE = process.env.ENGRAM_NAMESPACE ?? "demo-agent";
+const BACKEND = process.env.DEMO_LLM === "claude" ? "claude" : "local";
+const CHAT_MODEL = process.env.CHAT_MODEL || DEFAULT_CHAT_MODEL;
 const args = process.argv.slice(2);
 const scripted = args.includes("--script");
 const userFlag = args.indexOf("--user");
@@ -43,16 +49,21 @@ try {
     embeddings,
     duplicates: duplicatesFromEnvironment(db.db),
   });
-  const newConversation = () =>
-    createConversation({
+  const newConversation = (): Conversation => {
+    const options: MemoryToolOptions = {
       engram,
       namespace: NAMESPACE,
       userId,
       sessionId: randomUUID(),
       onMemory: showMemory,
-    });
+    };
+    return BACKEND === "claude"
+      ? createClaudeConversation(options)
+      : createLocalConversation(options);
+  };
 
-  console.log(dim(`Engram demo · ${MODEL} · ${NAMESPACE}/${userId} · ${embeddings.model}\n`));
+  const modelName = BACKEND === "claude" ? CLAUDE_MODEL : `${CHAT_MODEL} (local, free)`;
+  console.log(dim(`Engram demo · ${modelName} · ${NAMESPACE}/${userId} · ${embeddings.model}\n`));
 
   if (scripted) {
     const sessions = [
@@ -62,7 +73,7 @@ try {
       ],
       [
         "Can you give me a code example for retrying an HTTP request with backoff?",
-        "I'm picking a restaurant for a team dinner. Anything I should keep in mind?",
+        "What should I avoid ordering at the team dinner tonight?",
         "What do you remember about our last deploy problem?",
       ],
     ];
@@ -74,7 +85,7 @@ try {
       for (const turn of turns) {
         console.log(`\n${bold("You:")} ${turn}`);
         const { text } = await conversation.send(turn);
-        console.log(`${bold("Claude:")} ${text}`);
+        console.log(`${bold(BACKEND === "claude" ? "Claude:" : "Assistant:")} ${text}`);
       }
       console.log();
     }
@@ -90,7 +101,7 @@ try {
       const line = (await rl.question(bold("You: "))).trim();
       if (!line) break;
       const { text } = await conversation.send(line);
-      console.log(`${bold("Claude:")} ${text}\n`);
+      console.log(`${bold(BACKEND === "claude" ? "Claude:" : "Assistant:")} ${text}\n`);
     }
     rl.close();
   }

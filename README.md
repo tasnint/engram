@@ -6,6 +6,8 @@ AI assistants forget everything when a conversation ends. With Engram, an agent 
 
 Built by **Tanisha** (Track B: search, ranking, MCP, dashboard) and **Neha** (Track A: write path, lifecycle, REST API, SDK).
 
+**Everything runs free, on your own machine.** The database and search engine run in Docker. The embedding model (25 MB) and the chat model behind the demo agent and consolidation (SmolLM2-360M, 365 MB) run on your CPU inside Node through Transformers.js. No accounts, API keys or GPU. Claude and Voyage AI are optional upgrades if you have keys.
+
 ## Quick start
 
 Requires Node 22 (`nvm use`), pnpm 10 and Docker. On Windows with WSL, turn on WSL integration in Docker Desktop (Settings → Resources → WSL integration).
@@ -24,11 +26,16 @@ Then any of:
 ```bash
 pnpm dev:dashboard      # live dashboard on http://localhost:4317
 pnpm dev:api            # REST API on http://localhost:3000, docs at /docs
-pnpm demo --script      # Claude remembering you across two conversations (needs ANTHROPIC_API_KEY)
+```
+
+Try the demo agent, which runs on the free local model (downloads ~365 MB the first time):
+
+```bash
+pnpm demo --script      # remembering you across two separate conversations
 pnpm demo               # chat with it yourself
 ```
 
-The first run downloads the local embedding model (`Xenova/all-MiniLM-L6-v2`, about 25 MB). Nothing else needs an API key except the demo agent.
+The first run also downloads the embedding model (`Xenova/all-MiniLM-L6-v2`, about 25 MB). Both models are cached, so later runs work offline. If port 27017 is taken (for example by a MongoDB installed on Windows), set `MONGODB_PORT=27018` and the same port in `MONGODB_URI` in `.env`.
 
 ## How it fits together
 
@@ -90,7 +97,7 @@ The full contract is in [packages/core/src/types.ts](packages/core/src/types.ts)
 - **`remember()` (A2).** Validates input with Zod, embeds the content, derives tags and an importance score when the caller doesn't give them, and stores the memory.
 - **Duplicates (A3).** Identical text is caught by a partial unique index on a content hash, which stays correct even with concurrent writes. Near-duplicates (`DEDUP_MODE=vector`) are found with `$vectorSearch` on the same index recall uses. The existing memory is updated, merging tags and keeping its id and access history.
 - **Forgetting (A4).** TTL expiry, `forget()` for one memory or everything about a user, and importance decay with a 90-day half-life. Decay is based on elapsed time and never applied twice.
-- **Consolidation (A5).** `pnpm lifecycle consolidate <namespace>` groups each user's old episodes by day, summarizes them with any OpenAI-compatible endpoint (a local Ollama works), then inserts the summary and archives the originals in one multi-document transaction. If an episode changes or is deleted while the summary is being written, that group is skipped. If archiving fails, the summary insert rolls back.
+- **Consolidation (A5).** `pnpm lifecycle consolidate <namespace>` groups each user's old episodes by day, summarizes them with any OpenAI-compatible endpoint (by default the free local chat model), then inserts the summary and archives the originals in one multi-document transaction. If an episode changes or is deleted while the summary is being written, that group is skipped. If archiving fails, the summary insert rolls back.
 - **API and SDK (A6, A7).** Fastify with per-namespace API keys (compared as hashes in constant time), Zod validation and OpenAPI docs. The SDK retries reads with backoff and never retries writes.
 
 ## Finding memories (Track B)
@@ -136,13 +143,25 @@ At this size, scanning every vector is still faster than walking the HNSW graph.
 | Exact text only                          | 56.9          | 16.9 ms | 22.2 ms |
 | Exact + near-duplicate (`$vectorSearch`) | 39.4          | 24.7 ms | 30.9 ms |
 
+## The demo agent
+
+`pnpm demo --script` plays two conversations with no shared chat history. In the first you mention a few things about yourself. In the second, the agent uses them: it writes code in Go, warns about the shellfish allergy, and recalls last week's deploy failure.
+
+Each turn, the agent:
+
+1. recalls the 3 memories most related to your message (hybrid search),
+2. hands them to the model as "Notes about me" in front of your message,
+3. replies, then saves each statement you made as its own memory (questions are skipped).
+
+That design is deliberate. A 360M-parameter model can't reliably decide when to call tools, so the code does the memory work and the model only writes the reply. Expect small-model answers: short on nuance and sometimes inventing details. With `DEMO_LLM=claude` and an API key, the agent instead uses Claude with tool calling, deciding for itself what to recall and remember.
+
 ## Use with Claude Desktop
 
 See [packages/mcp/README.md](packages/mcp/README.md). Each MCP server is locked to one namespace and user, so the agent can't reach another user's memories through tool arguments.
 
 ## Configuration
 
-Everything is in [.env.example](.env.example). The main settings are `MONGODB_URI`, `EMBEDDING_PROVIDER` (`local`, `voyage` or `hash`), `API_KEYS`, `DEDUP_MODE` and, for consolidation, `SUMMARIZER_URL`/`SUMMARIZER_MODEL`.
+Everything is in [.env.example](.env.example). The main settings are `MONGODB_URI`, `EMBEDDING_PROVIDER` (`local`, `voyage` or `hash`), `API_KEYS`, `DEDUP_MODE`, `CHAT_MODEL`, and `DEMO_LLM` (`local`, or `claude` with a paid `ANTHROPIC_API_KEY`).
 
 A database is bound to one embedding model and vector length. To switch models, use a new database (`MONGODB_DATABASE`) or re-embed every memory.
 
