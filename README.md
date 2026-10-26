@@ -153,6 +153,11 @@ Each turn, the agent:
 2. hands them to the model as "Notes about me" in front of your message,
 3. replies, then saves each statement you made as its own memory (questions are skipped).
 
+
+https://github.com/user-attachments/assets/85808767-ecb8-4aa7-a97f-04232e39c7d0
+
+
+
 That design is deliberate. A 360M-parameter model can't reliably decide when to call tools, so the code does the memory work and the model only writes the reply. Expect small-model answers: short on nuance and sometimes inventing details. With `DEMO_LLM=claude` and an API key, the agent instead uses Claude with tool calling, deciding for itself what to recall and remember.
 
 ## Use with Claude Desktop
