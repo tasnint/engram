@@ -44,7 +44,7 @@ flowchart LR
   subgraph Clients
     SDK[TypeScript SDK]
     MCP[MCP server]
-    Demo[Demo agent on Claude]
+    Demo[Demo agent: local model or Claude]
     Dash[Dashboard]
   end
   SDK --> API[REST API · Fastify · per-namespace keys]
@@ -69,7 +69,7 @@ flowchart LR
 | `packages/sdk`                  | Typed client with timeouts, cancellation and retries for reads                                                         | Neha                       |
 | `packages/mcp`                  | MCP server with `recall_memories`, `remember`, `forget_memory`                                                         | Tanisha                    |
 | `apps/dashboard`                | Stats, explained search results, live change-stream feed, delete                                                       | Tanisha                    |
-| `apps/demo`                     | Chat agent on Claude Opus 5.5 that uses Engram as its memory                                                           | both                       |
+| `apps/demo`                     | Chat agent that remembers you between conversations: a free local model by default, Claude optional                    | both                       |
 | `bench`                         | Write and recall benchmarks                                                                                            | both                       |
 | `docker/`, `docker-compose.yml` | Local MongoDB + mongot                                                                                                 | Tanisha                    |
 
@@ -145,7 +145,7 @@ At this size, scanning every vector is still faster than walking the HNSW graph.
 
 ## The demo agent
 
-`pnpm demo --script` plays two conversations with no shared chat history. In the first you mention a few things about yourself. In the second, the agent uses them: it writes code in Go, warns about the shellfish allergy, and recalls last week's deploy failure.
+`pnpm demo --script` plays two conversations with no shared chat history. In the first you mention a few things about yourself. In the second, the agent uses them: it writes code in Go, warns about the shellfish allergy, and recalls yesterday's deploy failure.
 
 Each turn, the agent:
 
@@ -153,12 +153,11 @@ Each turn, the agent:
 2. hands them to the model as "Notes about me" in front of your message,
 3. replies, then saves each statement you made as its own memory (questions are skipped).
 
+That design is deliberate. A 360M-parameter model can't reliably decide when to call tools, so the code does the memory work and the model only writes the reply. Expect small-model answers: short on nuance and sometimes inventing details. With `DEMO_LLM=claude` and an API key, the agent instead uses Claude with tool calling, deciding for itself what to recall and remember.
 
 https://github.com/user-attachments/assets/85808767-ecb8-4aa7-a97f-04232e39c7d0
 
-
-
-That design is deliberate. A 360M-parameter model can't reliably decide when to call tools, so the code does the memory work and the model only writes the reply. Expect small-model answers: short on nuance and sometimes inventing details. With `DEMO_LLM=claude` and an API key, the agent instead uses Claude with tool calling, deciding for itself what to recall and remember.
+To watch it live, start the dashboard and open http://localhost:4317/?user=u_video, then run `pnpm demo --script --user u_video`. Each memory appears in the dashboard's feed as it's saved and recalled.
 
 ## Use with Claude Desktop
 
@@ -177,7 +176,7 @@ pnpm lint && pnpm typecheck && pnpm test
 MONGODB_TEST_URI='mongodb://localhost:27017/?directConnection=true' pnpm test:integration
 ```
 
-- Unit tests (66) need no database.
+- Unit tests (76) need no database.
 - Integration tests (26) cover:
   - the write path: concurrency, schema, TTL, pagination, decay, transactions
   - recall: filters, modes, fusion, access tracking
